@@ -91,8 +91,25 @@ foreach($chart in $charts.GetEnumerator())
 	}
 	
 	$modifiedChartRow = $chartTable[$chart.Key]
-	$modifiedChartRow.md5 = $chart.Value.md5.Hash.toLower()
-	$modifiedChartRow.sha256 = $chart.Value.sha256.Hash.toLower()
+	
+	$areBothNull = $true
+	if (!($chart.Value.md5 -eq $null))
+	{
+		$modifiedChartRow.md5 = $chart.Value.md5.Hash.toLower()
+		$areBothNull = $false
+	}
+	
+	if (!($chart.Value.sha256 -eq $null))
+	{
+		$modifiedChartRow.sha256 = $chart.Value.sha256.Hash.toLower()
+		$areBothNull = $false
+	}
+	
+	if ($areBothNull)
+	{
+		Write-Host "No filehash found. Skipping..."
+		Continue
+	}
 	
 	$modifiedJsonItems.Add($modifiedChartRow)
 }
