@@ -121,4 +121,4 @@ if (!(Test-Path -LiteralPath $destinationFilePath))
 	New-Item -Path $destinationFilePath -ItemType File -Force | Out-Null
 }
 
-$modifiedJsonItems | ConvertTo-Json | Out-File ($destination + '\score.json')
+$modifiedJsonItems | Sort { [int]$_.level } | ConvertTo-Json | Out-File ($destination + '\score.json')
