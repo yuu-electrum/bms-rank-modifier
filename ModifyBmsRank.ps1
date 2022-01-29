@@ -51,7 +51,7 @@ $startedAt = Get-Date
 
 $errorFiles = @{}
 $unchangedFiles = @{}
-$convertDetails = @{}
+$convertDetails = New-Object System.Collections.Generic.List[PSCustomObject]
 
 foreach ($bmsFile in $targetBmsFiles)
 {
@@ -103,7 +103,7 @@ foreach ($bmsFile in $targetBmsFiles)
 			if ($origin.Contains("#RANK"))
 			{
 				$rank = [int]($origin -replace "#RANK ", "")
-				if ($rank -gt $rankId -And $preservesRankWhenAlreadyHarder)
+				if ($rank -lt $rankId -And $preservesRankWhenAlreadyHarder)
 				{
 					$fileWriter.WriteLine($origin)
 					$unchangedFiles[$currentFileCount] = @{originFilePath = $bmsFile.FullName}
@@ -137,7 +137,7 @@ foreach ($bmsFile in $targetBmsFiles)
 		
 		$sourceMd5Hash = Get-FileHash -Algorithm MD5 -LiteralPath $bmsFile.FullName
 		$destinationMd5Hash = Get-FileHash -Algorithm MD5 -LiteralPath $destinationFilePath
-		$convertDetails[$sourceMd5Hash.Hash] = $destinationMd5Hash.Hash
+		$convertDetails.Add(@{source = $sourceMd5Hash.Hash; destination = $destinationMd5Hash.Hash})
 	}
 
 	$currentFileCount = $currentFileCount + 1
