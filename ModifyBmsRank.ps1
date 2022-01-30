@@ -40,7 +40,7 @@ $targetBmsFiles = $bmsFiles | Where-Object { $_.FullName -match ".+\.bm(s|l|e)+"
 $totalFileCount = $targetBmsFiles.Count
 $currentFileCount = 1
 
-$reportFilePath = $currentDir + "\ConvertReport-" + (Get-Date -UFormat "%Y%m%d%H%M%S") + ".txt"
+$reportFilePath = (Convert-Path $destination) + "\ConvertReport-" + (Get-Date -UFormat "%Y%m%d%H%M%S") + ".txt"
 $reportWriter = New-Object System.IO.StreamWriter($reportFilePath, $false, [Text.Encoding]::GetEncoding("UTF-8"))
 
 $completeConvertingCount = 0
@@ -51,6 +51,7 @@ $startedAt = Get-Date
 
 $errorFiles = @{}
 $unchangedFiles = @{}
+$convertDetails = New-Object System.Collections.Generic.List[PSCustomObject]
 
 foreach ($bmsFile in $targetBmsFiles)
 {
@@ -64,7 +65,7 @@ foreach ($bmsFile in $targetBmsFiles)
 	$encoding = [Text.Encoding]::GetEncoding($codePage)
 	$fileReader = New-Object System.IO.StreamReader($bmsFile.FullName, $encoding)
 	
-	$destinationFilePath = $destination + '\' + $bmsFile.FullName.Replace($source, "")
+	$destinationFilePath = (Convert-Path $destination) + $bmsFile.FullName.Replace((Convert-Path $source), "")
 	$destinationFileDirectory = Split-Path $destinationFilePath
 	
 	if ($copyOtherFile -And !(Test-Path -LiteralPath $destinationFilePath))
@@ -77,7 +78,7 @@ foreach ($bmsFile in $targetBmsFiles)
 	if (!(Test-Path -LiteralPath $destinationFilePath))
 	{
 		Write-Progress -Activity "Progress" -Id 1 -CurrentOperation "The target file does not exist and has been created." -Status $currentFileCount'/'$totalFileCount -PercentComplete $progressInPercentage
-		New-Item -Path $destinationFilePath -ItemType File -Force
+		New-Item -Path $destinationFilePath -ItemType File -Force | Out-Null
 	}
 	
 	Write-Progress -Activity "Progress" -Id 1 -CurrentOperation "Modifying #RANK..." -Status $currentFileCount'/'$totalFileCount -PercentComplete $progressInPercentage
@@ -88,20 +89,21 @@ foreach ($bmsFile in $targetBmsFiles)
 		Set-ItemProperty -LiteralPath $bmsFile.FullName -Name IsReadOnly -Value $false
 		if (Test-Path -LiteralPath $destinationFilePath)
 		{
-			Set-ItemProperty -LiteralPath $destinationFilePath -Name IsReadOnly -Value $false
+			Set-ItemProperty -LiteralPath $destinationFilePath -Name IsReadOnly -Value $false | Out-Null
 		}
 		
 		$fileWriter = New-Object System.IO.StreamWriter($destinationFilePath, $false, [Text.Encoding]::GetEncoding($codePage))
 		$isError = $false
+		
 		while (!$fileReader.EndOfStream)
 		{
 			$origin = $fileReader.ReadLine()
 			$line = $origin -Replace "#RANK [0-9]+","#RANK $rankId"
-			
+						
 			if ($origin.Contains("#RANK"))
 			{
 				$rank = [int]($origin -replace "#RANK ", "")
-				if ($rank -gt $rankId -And $preservesRankWhenAlreadyHarder)
+				if ($rank -lt $rankId -And $preservesRankWhenAlreadyHarder)
 				{
 					$fileWriter.WriteLine($origin)
 					$unchangedFiles[$currentFileCount] = @{originFilePath = $bmsFile.FullName}
@@ -132,10 +134,16 @@ foreach ($bmsFile in $targetBmsFiles)
 	else
 	{
 		$completeConvertingCount = $completeConvertingCount + 1
+		
+		$sourceMd5Hash = Get-FileHash -Algorithm MD5 -LiteralPath $bmsFile.FullName
+		$destinationMd5Hash = Get-FileHash -Algorithm MD5 -LiteralPath $destinationFilePath
+		$convertDetails.Add(@{source = $sourceMd5Hash.Hash; destination = $destinationMd5Hash.Hash})
 	}
 
 	$currentFileCount = $currentFileCount + 1
 }
+
+$convertDetails | ConvertTo-Json | Out-File ($destination + '\convert_detail.json')
 
 $reportWriter.WriteLine('===== Converting Summary =====')
 $reportWriter.WriteLine('Total (to be convered): ' + $totalFileCount)
