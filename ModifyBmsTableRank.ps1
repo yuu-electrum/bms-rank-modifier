@@ -12,6 +12,24 @@ $shouldExit = $false;
 $currentDir = Split-Path $MyInvocation.MyCommand.Path
 [Reflection.Assembly]::LoadFile($currentDir + "\Hnx8.ReadJEnc.dll") | Out-Null
 
+if (!(Test-Path $convertDetailSource))
+{
+	Write-Host "A convert detail json file does not exist."
+	$shouldExit = $true
+}
+
+if (!(Test-Path ($tableSource + "\score.json")))
+{
+	Write-Host "score.json does not exist in a directory specified."
+	$shouldExit = $true
+}
+
+if ($shouldExit)
+{
+	Write-Host "Exiting..."
+	Exit
+}
+
 Write-Host "Started converting table json set..."
 
 
@@ -22,7 +40,7 @@ $convertDetails = Get-Content -LiteralPath (Convert-Path $convertDetailSource) -
 $convertHashDetails = @{}
 foreach ($detail in $convertDetails.GetEnumerator())
 {
-	$convertHashDetails[$detail.source] = $detail.destination
+	$convertHashDetails[$detail.sourceMd5] = $detail
 }
 
 #=================================================
@@ -52,13 +70,13 @@ foreach ($chart in $chartTable.GetEnumerator())
 	$areBothNull = $true
 	if (!($chart.Value.md5 -eq $null))
 	{
-		$modifiedChartRow.md5 = $chart.Value.md5.Hash.toLower()
+		$modifiedChartRow.md5 = $convertHashDetails[$chart.Key].destinationMd5.toLower()
 		$areBothNull = $false
 	}
 	
 	if (!($chart.Value.sha256 -eq $null))
 	{
-		$modifiedChartRow.sha256 = $chart.Value.sha256.Hash.toLower()
+		$modifiedChartRow.sha256 = $convertHashDetails[$chart.Key].destinationSha256.toLower()
 		$areBothNull = $false
 	}
 	
@@ -79,47 +97,3 @@ if (!(Test-Path -LiteralPath $destinationFilePath))
 }
 
 $modifiedJsonItems | Sort { $_.level -As [Int] } | ConvertTo-Json | Out-File ((Convert-Path $destination) + '\score.json')
-
-<#
-$modifiedJsonItems = New-Object System.Collections.Generic.List[PSCustomObject]
-foreach($chart in $charts.GetEnumerator())
-{
-	if (!$chartTable.Contains($chart.Key))
-	{
-		# Ignores a chart if no entry was found in the chart table
-		Continue
-	}
-	
-	$modifiedChartRow = $chartTable[$chart.Key]
-	
-	$areBothNull = $true
-	if (!($chart.Value.md5 -eq $null))
-	{
-		$modifiedChartRow.md5 = $chart.Value.md5.Hash.toLower()
-		$areBothNull = $false
-	}
-	
-	if (!($chart.Value.sha256 -eq $null))
-	{
-		$modifiedChartRow.sha256 = $chart.Value.sha256.Hash.toLower()
-		$areBothNull = $false
-	}
-	
-	if ($areBothNull)
-	{
-		Write-Host "No filehash found. Skipping..."
-		Continue
-	}
-	
-	$modifiedJsonItems.Add($modifiedChartRow)
-}
-
-$destinationFilePath = ($destination + '\score.json')
-if (!(Test-Path -LiteralPath $destinationFilePath))
-{
-	New-Item -Path (Split-Path $destinationFilePath) -ItemType Directory | Out-Null
-	New-Item -Path $destinationFilePath -ItemType File -Force | Out-Null
-}
-
-$modifiedJsonItems | Sort { [int]$_.level } | ConvertTo-Json | Out-File ($destination + '\score.json')
-#>

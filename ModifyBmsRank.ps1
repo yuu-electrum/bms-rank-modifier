@@ -135,9 +135,19 @@ foreach ($bmsFile in $targetBmsFiles)
 	{
 		$completeConvertingCount = $completeConvertingCount + 1
 		
-		$sourceMd5Hash = Get-FileHash -Algorithm MD5 -LiteralPath $bmsFile.FullName
-		$destinationMd5Hash = Get-FileHash -Algorithm MD5 -LiteralPath $destinationFilePath
-		$convertDetails.Add(@{source = $sourceMd5Hash.Hash; destination = $destinationMd5Hash.Hash})
+		$sourceMd5Hash         = Get-FileHash -Algorithm MD5 -LiteralPath $bmsFile.FullName
+		$sourceSha256Hash      = Get-FileHash -Algorithm SHA256 -LiteralPath $bmsFile.FullName
+		$destinationMd5Hash    = Get-FileHash -Algorithm MD5 -LiteralPath $destinationFilePath
+		$destinationSha256Hash = Get-FileHash -Algorithm SHA256 -LiteralPath $destinationFilePath
+		
+		$convertDetails.Add(
+			@{
+				sourceMd5         = $sourceMd5Hash.Hash        ;
+				destinationMd5    = $destinationMd5Hash.Hash   ;
+				sourceSha256      = $sourceSha256Hash.Hash     ;
+				destinationSha256 = $destinationSha256Hash.Hash
+			}
+		)
 	}
 
 	$currentFileCount = $currentFileCount + 1
